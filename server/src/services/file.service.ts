@@ -39,7 +39,7 @@ export class FileService {
         }
 
         const filePath = file.f_path;
-        const userDirectory = path.dirname(filePath); // Derive the user's directory from the file path
+        const userDirectory = path.dirname(filePath);
 
         try {
             if (fs.existsSync(filePath)) {
@@ -49,14 +49,7 @@ export class FileService {
                 console.warn(`File ${filePath} not found on disk.`);
             }
 
-
-            // Check if the directory is empty after deleting the file
-            const isDirectoryEmpty = fs.readdirSync(userDirectory).length === 0;
-
-            if (isDirectoryEmpty) {
-                fs.rmdirSync(userDirectory);
-                console.log(`User directory ${userDirectory} was empty and has been deleted.`);
-            }
+            this.deleteDirectoryIfEmpty(userDirectory);
 
             console.log(`File record with ID ${fileId} and associated customers deleted from the database.`);
 
@@ -70,23 +63,29 @@ export class FileService {
     }
 
     async saveFile(userId: number, file: Express.Multer.File): Promise<FileEntity> {
-        const userDirectory = path.join(__dirname, '..', 'ExcelUploads', `user_${userId}`);
-        const filePath = path.join(userDirectory, file.originalname);
+        const pendingDirectory = path.join(__dirname, '..', 'ExcelPending', `user_${userId}`);
+        const uploadDirectory = path.join(__dirname, '..', 'ExcelUploads', `user_${userId}`);
+        // const filePath = path.join(userDirectory, file.originalname);
 
         try {
             const user = await this.usersRepository.findOne({ where: { u_id: userId } });
             const isLimitReached = await this.isQueueOnLimit();
+            const fileStatus = isLimitReached ? "pending" : "uploading";
 
             if (!user) {
                 throw new Error('User not found');
             }
 
+            // Generate a unique file path for the pending or uploaded state
+            const uniqueFilePath = this.generateUniqueFilePath(isLimitReached ? pendingDirectory : uploadDirectory, file.originalname);
+
             const newFile = this.filesRepository.create({
-                f_path: filePath,
+                f_path: uniqueFilePath,
                 f_name: file.originalname,
                 user: user,
-                f_status: isLimitReached ? "pending" : "uploading"
+                f_status: fileStatus
             });
+
 
             const savedFile = await this.filesRepository.save(newFile);
 
@@ -97,8 +96,16 @@ export class FileService {
             });
 
             await this.queueRepository.save(queueItem);
-            this.processQueue(file.buffer);
 
+            // Save the file to the pending directory if the status is pending
+            if (fileStatus === 'pending') {
+                if (!fs.existsSync(pendingDirectory)) {
+                    fs.mkdirSync(pendingDirectory, { recursive: true });
+                }
+                fs.writeFileSync(uniqueFilePath, file.buffer); // Store file in pending folder
+            }
+
+            this.processQueue(file.buffer);
             return savedFile;
 
         } catch (error) {
@@ -192,21 +199,26 @@ export class FileService {
 
         await this.updateFileStatus(nextInQueue.file, 'uploading', nextInQueue.file.user.u_id, nextInQueue.file.f_id);
 
-        const userDirectory = path.dirname(nextInQueue.file.f_path);
-        const originalFileName = path.basename(nextInQueue.file.f_path);
-        const uniqueFilePath = this.generateUniqueFilePath(userDirectory, originalFileName);
+        const pendingDirectory = path.join(__dirname, '..', 'ExcelPending', `user_${nextInQueue.file.user.u_id}`);
+        const uploadDirectory = path.join(__dirname, '..', 'ExcelUploads', `user_${nextInQueue.file.user.u_id}`);
+        const pendingFilePath = path.join(pendingDirectory, path.basename(nextInQueue.file.f_path));
 
-        nextInQueue.file.f_path = uniqueFilePath;
-        await this.filesRepository.save(nextInQueue.file);
+        if (fs.existsSync(pendingFilePath)) {
+            const uniqueFilePath = this.generateUniqueFilePath(uploadDirectory, nextInQueue.file.f_name); // Ensure unique path
+            fs.renameSync(pendingFilePath, uniqueFilePath);
+            nextInQueue.file.f_path = uniqueFilePath;
+            await this.filesRepository.save(nextInQueue.file);
+        }
 
+        this.deleteDirectoryIfEmpty(pendingDirectory);
 
         setTimeout(async () => {
             try {
-                if (!fs.existsSync(userDirectory)) {
-                    fs.mkdirSync(userDirectory, { recursive: true });
+                if (!fs.existsSync(uploadDirectory)) {
+                    fs.mkdirSync(uploadDirectory, { recursive: true });
                 }
 
-                fs.writeFileSync(uniqueFilePath, fileBuffer);
+                fs.writeFileSync(nextInQueue.file.f_path, fileBuffer);
                 //save customers on DB
                 await this.processExcelFile(nextInQueue.file, nextInQueue.file.f_path);
 
@@ -258,6 +270,11 @@ export class FileService {
         return uniqueFilePath;
     }
 
-
-
+    private deleteDirectoryIfEmpty(directory: string): void {
+        const files = fs.readdirSync(directory);
+        if (files.length === 0) {
+            fs.rmdirSync(directory);
+            console.log(`Deleted empty directory: ${directory}`);
+        }
+    }
 }

@@ -2,9 +2,10 @@
 client/node_modules/
 server/node_modules/
 
-# Build directories
 client/build/
 server/dist/
+server/src/ExcelUploads
+server/src/ExcelPending
 
-# Environment variables
+
 .env
