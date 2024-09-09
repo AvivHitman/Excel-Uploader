@@ -11,7 +11,6 @@ import { Server } from 'socket.io';
     @WebSocketServer()
     server: Server;
 
-    // Emit status updates
     async emitFileStatusUpdate(userId: number, fileId: number, status: string) {
         this.server.emit(`file-status-update-${userId}`, { fileId, status });
     }

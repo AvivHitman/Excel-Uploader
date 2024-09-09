@@ -1,9 +1,7 @@
-import React, { useState } from "react"
 import * as S from "./Card.style";
 import DescriptionIcon from '@mui/icons-material/Description';
 import HourglassTopIcon from '@mui/icons-material/HourglassTop';
-import { TableModal } from '../tableModal/TableModal';
-import { Customer } from '../../types'
+
 
 type Props = {
     fileName: string

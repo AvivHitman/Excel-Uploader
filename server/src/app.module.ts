@@ -5,9 +5,7 @@ import { User } from './entities/user.entity';
 import { UserService } from './services/user.service';
 import { UsersController } from './controllers/user.controller';
 import { FilesController } from './controllers/file.controller';
-import { CustomersController } from './controllers/customer.controller';
 import { FileService } from './services/file.service';
-import { CustomersService } from './services/customer.service';
 import { FileEntity } from './entities/file.entity';
 import { Customer } from './entities/customers.entity';
 import { Queue } from './entities/queue.entity';
@@ -34,7 +32,7 @@ import { FileGateway } from './FileGateway';
     }),
     TypeOrmModule.forFeature([User, FileEntity, Customer, Queue]),
   ],
-  controllers: [UsersController, FilesController, CustomersController],
-  providers: [UserService, FileService, CustomersService, FileGateway],
+  controllers: [UsersController, FilesController],
+  providers: [UserService, FileService, FileGateway],
 })
 export class AppModule { }

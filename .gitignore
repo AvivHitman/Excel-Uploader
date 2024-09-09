@@ -6,6 +6,3 @@ client/build/
 server/dist/
 server/src/ExcelUploads
 server/src/ExcelPending
-
-
-.env

@@ -1,11 +1,7 @@
 import fileReducer from "./fileSlice";
 
-import { combineReducers, configureStore } from "@reduxjs/toolkit";
+import { configureStore } from "@reduxjs/toolkit";
 
-// const rootReducer = combineReducers({
-//   booksReducer,
-//   authorsReducer
-// });
 const store = configureStore({
     reducer: fileReducer
 });

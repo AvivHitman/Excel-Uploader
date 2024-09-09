@@ -13,7 +13,7 @@ import * as xlsx from 'xlsx';
 
 @Injectable()
 export class FileService {
-    private readonly maxConcurrentUploads = 2;
+    private readonly maxConcurrentUploads = 5;
     constructor(
         @InjectRepository(FileEntity)
         private filesRepository: Repository<FileEntity>,
@@ -56,6 +56,7 @@ export class FileService {
             // Delete the file record, which will cascade delete the associated customers
             await this.filesRepository.delete(fileId);
             return file;
+
         } catch (error) {
             console.error('Error deleting file:', error);
             throw new Error('Failed to delete file');
@@ -65,7 +66,6 @@ export class FileService {
     async saveFile(userId: number, file: Express.Multer.File): Promise<FileEntity> {
         const pendingDirectory = path.join(__dirname, '..', 'ExcelPending', `user_${userId}`);
         const uploadDirectory = path.join(__dirname, '..', 'ExcelUploads', `user_${userId}`);
-        // const filePath = path.join(userDirectory, file.originalname);
 
         try {
             const user = await this.usersRepository.findOne({ where: { u_id: userId } });
@@ -76,7 +76,6 @@ export class FileService {
                 throw new Error('User not found');
             }
 
-            // Generate a unique file path for the pending or uploaded state
             const uniqueFilePath = this.generateUniqueFilePath(isLimitReached ? pendingDirectory : uploadDirectory, file.originalname);
 
             const newFile = this.filesRepository.create({
@@ -86,10 +85,9 @@ export class FileService {
                 f_status: fileStatus
             });
 
-
             const savedFile = await this.filesRepository.save(newFile);
+            await this.updateFileStatus(newFile, fileStatus, newFile.user.u_id, newFile.f_id);
 
-            // Queue the file for processing
             const queueItem = this.queueRepository.create({
                 q_status: 'pending',
                 file: savedFile,
@@ -97,12 +95,11 @@ export class FileService {
 
             await this.queueRepository.save(queueItem);
 
-            // Save the file to the pending directory if the status is pending
             if (fileStatus === 'pending') {
                 if (!fs.existsSync(pendingDirectory)) {
                     fs.mkdirSync(pendingDirectory, { recursive: true });
                 }
-                fs.writeFileSync(uniqueFilePath, file.buffer); // Store file in pending folder
+                fs.writeFileSync(uniqueFilePath, file.buffer);
             }
 
             this.processQueue(file.buffer);
@@ -157,8 +154,6 @@ export class FileService {
             const sheet = workbook.Sheets[sheetName];
 
             const customerData = xlsx.utils.sheet_to_json(sheet);
-            console.log({ customerData });
-
 
             for (const data of customerData) {
                 const customer = this.customerRepository.create({
@@ -166,13 +161,13 @@ export class FileService {
                     c_email: data['Email'],
                     c_israeli_id: data['Israeli ID'],
                     c_phone: data['Phone'],
-                    file: fileEntity, // Link to the FileEntity
+                    file: fileEntity,
                 });
 
                 await this.customerRepository.save(customer);
             }
-
             console.log('Customer data successfully updated from Excel file.');
+
         } catch (error) {
             console.error('Error processing Excel file:', error);
             throw new Error('Failed to process Excel file');
@@ -203,15 +198,16 @@ export class FileService {
         const uploadDirectory = path.join(__dirname, '..', 'ExcelUploads', `user_${nextInQueue.file.user.u_id}`);
         const pendingFilePath = path.join(pendingDirectory, path.basename(nextInQueue.file.f_path));
 
+        //if the file is in the pending folder so change his path
         if (fs.existsSync(pendingFilePath)) {
-            const uniqueFilePath = this.generateUniqueFilePath(uploadDirectory, nextInQueue.file.f_name); // Ensure unique path
+            const uniqueFilePath = this.generateUniqueFilePath(uploadDirectory, nextInQueue.file.f_name);
             fs.renameSync(pendingFilePath, uniqueFilePath);
             nextInQueue.file.f_path = uniqueFilePath;
+            this.deleteDirectoryIfEmpty(pendingDirectory);
             await this.filesRepository.save(nextInQueue.file);
         }
 
-        this.deleteDirectoryIfEmpty(pendingDirectory);
-
+        // file uploading - adding the setTimeOut for simulation
         setTimeout(async () => {
             try {
                 if (!fs.existsSync(uploadDirectory)) {
@@ -219,6 +215,7 @@ export class FileService {
                 }
 
                 fs.writeFileSync(nextInQueue.file.f_path, fileBuffer);
+
                 //save customers on DB
                 await this.processExcelFile(nextInQueue.file, nextInQueue.file.f_path);
 
@@ -237,7 +234,7 @@ export class FileService {
             } finally {
                 this.processQueue(fileBuffer);  // Continue processing the queue
             }
-        }, 20000);
+        }, 5000);
     }
 
     private async isQueueOnLimit(): Promise<boolean> {
@@ -254,6 +251,7 @@ export class FileService {
         userId: number,
         fileId: number
     ): Promise<void> {
+
         file.f_status = status;
         await this.filesRepository.save(file);
 

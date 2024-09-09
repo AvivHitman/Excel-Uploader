@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react"
-import { DropDown } from "../../components/dropDown/DropDown"
-import * as S from "./UserSelection.style";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { DropDown } from "../../components/dropDown/DropDown"
 import { User } from "../../types";
+import * as S from "./UserSelection.style";
 
 
 export const UserSelection = () => {

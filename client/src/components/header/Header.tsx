@@ -1,4 +1,3 @@
-import React, { ChangeEvent, useState } from "react";
 import * as S from "./Header.style";
 import { UploadFile } from "../uploadFile/UploadFile";
 
@@ -8,8 +7,6 @@ type Props = {
 };
 
 export const Header = ({ title, userId }: Props) => {
-    const [isUploadVisible, setIsUploadVisible] = useState(false);
-
     return (
         <S.Header>
             <S.Title>{title}</S.Title>

@@ -13,9 +13,9 @@ export const Modal = styled.div`
   box-shadow: 0 8px 20px rgb(0 0 0 / 15%);
   display: flex;
   flex-direction: column;
-  padding: 50px;  /* Add padding to ensure content doesn't overlap with the close button */
-  max-height: 80%; /* Limit the height to prevent overflow */
-  overflow-y: auto; /* Scroll if the content exceeds the modal size */
+  padding: 50px;  
+  max-height: 80%; 
+  overflow-y: auto;
 `;
 
 export const CloseButton = styled.button`

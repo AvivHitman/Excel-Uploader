@@ -1,17 +1,15 @@
 import axios from "axios";
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
-import { Customer, File, User } from "../types";
+import { Customer, File } from "../types";
 
 const serverUrl = "http://localhost:3000/files";
 
 type FileState = {
     userFiles: File[];
     customers: Customer[]
-    //fetchStatus: string;
 };
 
 const initialState: FileState = {
-    //fetchStatus: fetchStatus.LOADING,
     userFiles: [],
     customers: []
 };
