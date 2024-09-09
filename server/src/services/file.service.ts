@@ -242,7 +242,7 @@ export class FileService {
             where: { q_status: 'uploading' },
         });
 
-        return currentUploads >= this.maxConcurrentUploads;
+        return currentUploads > this.maxConcurrentUploads;
     }
 
     private async updateFileStatus(
